@@ -1,0 +1,381 @@
+---
+title: "Trabalho 1- Planejamento de Experimentos"
+author: "Carlos Alberto Alves de Meneses,20180003202"
+date: "2023-03-04"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Análise de Variância (ANOVA)
+
+
+ **Introdução**
+
+A análise de Variância (ANOVA) é um teste estatístico considerado uma extensão do teste t amostral. A análise de variância é usada quando o número de grupos a serem comparados são dois. Se usarmos o teste t múltiplo para comparar mais de dois grupos, o teste t torna-se não confiável.
+
+ **ONE WAY ANOVA**
+
+A análise de variância (muitas vezes chamada de ANOVA) é uma técnica estatística para analisar a maneira pela qual a média de uma variável é afetada por uma variável categórica com mais de 2 grupos.
+
+ **Hipótese**
+
+A hipótese nula ANOVA é que todas as médias populacionais são iguais, a hipótese alternativa ANOVA é que pelo menos um par de grupos está tendo uma diferença significativa em média. 
+
+ **ANOVA ONE WAY AÇÕES**
+
+Antes de executar a ANOVA, devemos garantir que as seguintes suposições sejam atendidas:
+
+1. Independência de observações dentro e entre amostras - Conjuntos de amostras selecionados aleatoriamente são independentes uns dos outros;
+
+2. Normalidade da distribuição amostral - A amostra é extraída da população com distribuída normal;
+
+3. Variância igual - Desvios padrão iguais (ou variâncias) são assumidos para as populações;
+
+4. Quantitativo - Os dados são de natureza quantitativa.
+
+ **Objetivo**
+
+Analisar através de exemplos, as suposições do modelo, *ONE WAY*, incluindo as comparações multiplas.
+
+ **Exemplo 01** 
+
+Para controlar a pressão sanguínea, cinco tratamentos (Placebo, T2, T3, T4, T5) incluindo um placebo, 30 pacientes (seis pacientes por grupo de tratamento) foram designados aleatoriamente. A pressão arterial de cada paciente foi medida em intervalos regulares. Há alguma melhora significativa no sangue de pacientes com diferentes tratamentos? 
+
+```{r}
+#One Way ANOVA para dados não empilhados #Ho: Todas as médias populacionais são iguais (μ1 = μ2 = μз.....= μn)
+#H: Pelo menos uma média é diferente das outras. (μ1 μ2 μз.....* μn) 
+
+y <- data.frame(Placebo = c(115, 118, 117, 117, 110, 108), T2=c(104,96,96,83,85,86), T3=c(86,84,84,85,84,83), T4=c(117, 124, 136, 146, 143, 145), T5=c(89, 83,85,87,87 ,86)) 
+y  
+times <-  stack(y)$values #empilhar os valores
+times
+treatment <- stack(y)$ind #pilha de variáveis indicadoras
+treatment
+
+```
+
+```{r}
+boxplot(times~treatment)
+```
+
+ **Análise de variância**
+
+```{r}
+#Realize a análise de variância
+fit <- aov(times~treatment)
+fit
+summary(fit)
+```
+
+Como o p-valor é 0,000, que é inferior a 5% do nível de significância, rejeitamos a hipótese nula, o que significa que há diferença significativa na pressão arterial média de pelo menos dois tratamentos. 
+
+```{r}
+res <- fit$residuals
+res
+```
+
+ **Cálculo dos resíduos padronizados**
+ 
+```{r}
+SSE = sum(res^2)
+MSE = SSE/fit$df.residual
+res.padronizado <- res/sqrt(MSE)
+round(res.padronizado, digits = 2)
+```
+
+ 
+ **Comparações Múltiplas**
+
+Após realizar a análise de variância, se rejeitarmos a hipótese nula de que todas as médias amostrais são iguais, então devemos realizar uma análise Post Hoc para selecionar quais médias são significativamente diferentes das demais.
+
+No exemplo da pressão arterial, gostaríamos de selecionar o tratamento mais eficaz, ou seja, aquele que leva à diminuição da pressão arterial.
+
+```{r}
+TukeyHSD(fit)
+```
+
+Os p-valores dos seguintes pares: T2-Placebo, T3-Placebo, T4-Placebo, T5 -Placebo, T4-T2, T4-T3 e T5-T4 são inferiores a 0,05, portanto, as médias são significativamente diferentes umas das outras. Portanto, a partir do box plot, podemos dizer que os tratamentos T3, T5, T2 são bastante eficazes na redução da pressão arterial em comparação com o placebo, enquanto o tratamento T4 é ineficaz na pressão arterial.
+
+```{r}
+plot(TukeyHSD(fit))
+```
+
+*Os pares da direita são estatisticamente significativos porque não incluem o zero em seus intervalos de confiança*.
+
+No gráfico acima, para o conjunto de comparações fornecido, os pares cujos intervalos de confiança não incluem zero são estatisticamente diferentes.
+
+```{r}
+library(outliers)
+dixon.test(res)
+```
+
+
+```{r}
+library(onewaytests)
+bf.test(times ~ factor(treatment), data = y)
+```
+
+
+```{r}
+out <- bf.test(times ~ factor(treatment), data = y)
+#paircomp(out)
+```
+
+ A ANOVA também é considerada um modelo linear e, portanto, também podemos realizar a análise abaixo: 
+
+```{r}
+model <- lm(times~treatment)
+model
+```
+
+
+```{r}
+anova(model)
+```
+
+```{r}
+summary(model)
+```
+
+ **Validação das suposições**
+
+ **Normalidade dos resíduos**
+
+Como o modelo ANOVA corresponde a um modelo linear com uma variável independente categórica. Assim, os pressupostos das regressões podem ser validados pelo método de análise de resíduos. 
+
+```{r}
+# mfrow significa simplesmente "layout de linha de vários quadros". mfcol significa WitiFrame layout por coluna". 
+par(mfrow = c(2,2)) 
+plot(fit)
+```
+
+* Teste Shapiro Wilk - Normalidade dos resíduos
+
+```{r}
+shapiro.test(res)
+```
+
+ **Homogeneidade da variância [Homoscedasticidade]** 
+
+* Teste de Homogeneidade de variância
+
+```{r}
+library(stats)
+fligner.test(times~treatment, data = y)
+```
+
+Assume-se que as populações têm desvios padrão (ou variâncias) iguais. Na ANOVA também é possível estimar se a hipótese de homocedasticidade é admissível. 
+
+```{r}
+#Ho: Homocedasticidade 
+#Hi: Heteroscedasticidade 
+bartlett.test(times~treatment) 
+```
+
+Como o p-valor é 0,000, que é menor que 5% do nível de significância, rejeitamos a hipótese nula e concluímos que as variâncias de cinco tratamentos não são iguais. Mas o teste de Bartlett não é tão robusto para população não normal e, portanto, em caso de não normalidade usamos o Teste de Levene.
+
+```{r}
+#Ho: Homoscedasticity
+#H: Heteroscedasticity
+#install.packages("car") 
+library(car) #Para o Teste de Levene você precisa do pacote "car"
+leveneTest(times, treatment) 
+```
+
+* Teste Robusto para a anova oneway
+
+```{r}
+library(onewaytests)
+welch.test(times~treatment, data = y)
+```
+
+
+```{r}
+#muito Robusto contra desvios da normalidade 
+bartlett.test(times ~ treatment, data=y) 
+```
+
+```{r}
+# Teste de Fligner-Killeen Teste não paramétrico. Muito robusto contra desvios da normalidade 
+fligner.test(times ~ treatment, data=y) 
+```
+
+Como o p-valor é 0,00243, que é menor que o nível de significância de 5%, rejeitamos a hipótese nula e concluímos que as variâncias de cinco tratamentos não são iguais. 
+
+
+ **Exemplo 02**
+
+Um economista queria comparar o consumo de eletricidade em quatro grandes cidades da Austrália. Ele pegou amostras aleatórias de 5 domicílios de duas pessoas de cada cidade (1-Adelaide, 2=Hobart, 3-Perth, 4-Melbourne) e seu consumo de energia.
+
+**Solução**
+
+Utilizaremos o banco *electricity* como nosso banco de dados e importaremos esse arquivo para o R.
+
+```{r}
+#ANOVA de uma via para dados empilhados #Ho: Não há diferença significativa no Principais cidades da Austrália Consumo de energia de quatro diferenças em pelo menos duas das quatro principais cidades da significativa Austrália
+library(readr)
+electricity <- read_delim("~/Documents/ESTATISTICA/PLANEJAMENTO/electricity.txt",delim = "\t", escape_double = FALSE,trim_ws = TRUE)
+attach(electricity) 
+city1 = as.factor(city) 
+summary(city1) 
+```
+
+```{r}
+#convertendo valor numérico em valor categórico
+city1 = factor(city1, labels=c("Adelaide", "Hobart", "Melbourne", "Perth"))
+summary(city1) 
+```
+
+```{r}
+fit = aov (consumption~city1) 
+summary(fit) 
+```
+
+
+Desde que o p- valor é 0,000, que é inferior a 5% do nível de significância, rejeitamos a hipótese nula, o que significa que há uma diferença significativa no consumo de eletricidade das quatro principais cidades da Austrália. 
+
+
+**Checagem do Modelo**
+
+```{r}
+boxplot(consumption~city1)
+```
+
+```{r}
+res <- fit$residuals
+res
+```
+
+* Cálculo dos resíduos padronizados
+
+```{r}
+SSE = sum(res^2)
+MSE = SSE/fit$df.residual
+resid.padronizado <- res/sqrt(MSE)
+round(resid.padronizado, digits = 2)
+```
+
+```{r}
+library(outliers)
+dixon.test(res)
+```
+
+Teste da Normalidade dos Resíduos
+
+```{r}
+shapiro.test(res)
+```
+
+* Teste de Homogeneidade de variância
+
+```{r}
+library(lawstat)
+leveneTest(consumption, city1)
+```
+```{r}
+bartlett.test(consumption,city1)
+```
+```{r}
+library(stats)
+fligner.test(consumption~city1, data = electricity)
+```
+**Teste robusto para a anova oneway**
+
+```{r}
+library(onewaytests)
+welch.test(consumption~city1, data = electricity)
+```
+
+* Teste de Bryan Forsythe
+
+```{r}
+bf.test(consumption~factor(city1), data = electricity)
+```
+
+```{r}
+out6 <- bf.test(consumption~city1, data = electricity)
+paircomp(out6)
+```
+
+```{r}
+library(onewaytests)
+library(agricolae)
+out7 <- HSD.test(fit, "city1")
+out7 
+plot(out7)
+```
+
+```{r}
+out8 <- LSD.test(fit, "city1")
+out8
+```
+```{r}
+out9 <-  scheffe.test(fit, "city1")
+out9
+```
+
+```{r}
+comparison <- duncan.test(fit, "city1")
+comparison
+```
+
+```{r}
+out10 <- SNK.test(fit, "city1")
+out10
+```
+
+```{r}
+out11 <- waller.test(fit, "city1")
+out11
+```
+
+```{r}
+library(DescTools)
+DunnettTest(consumption, city1, control = NULL, conf.level = 0.95)
+```
+
+
+**Cálculo das médias uando a função tapply**
+
+
+```{r}
+#usando a função tapply para calcular a média de quatro cidades 
+tapply(consumption, city1, mean) 
+``` 
+
+Pode-se observar que o consumo de eletricidade em Perth é muito menor do que nas outras três cidades da Austrália. Isso pode ser confirmado usando o teste PostHoc Tukey. 
+
+```{r}
+TukeyHSD (fit) 
+```
+
+
+O p-valor dos seguintes pares: Perth-Adelaide, Perth-Hobart, Perth-Melbourne são inferiores a 4,05, podemos dizer que há uma diferença significativa no consumo de eletricidade nesses pares. 
+
+```{r}
+plot(TukeyHSD (fit)) 
+```
+
+No gráfico acima, para o conjunto de comparações fornecido, os pares cujo intervalo de confiança não incluem o zero são estatisticamente diferentes.
+
+ **ONE WAY ANOVA USANDO O PACOTE ["userfriendlyscience"]**
+
+Como um acrescimo no nosso conhecimento, apresento a seguir um pacote que nos auxilia nas nossas análises.
+
+Infelizmente, esse pacote não está mais disponível no CRAN-R e foi baixado através da página dos próprios desenvolvedores. 
+
+O crédito pelo desenvolvimento de um pacote amigável à ciência vai para Gjalt-Jorn Peters, Peter Verboon, James Green. O pacote também abriga convenientemente uma série de funções adicionais destinadas a aumentar a qualidade da metodologia e estatística em psicologia, não oferecendo soluções técnicas, mas mudando as perspectivas, por exemplo, em direção ao raciocínio baseado em distribuições de amostragem em oposição a estimativas pontuais. 
+
+```{r}
+#Instalando dependências
+#devtools::install_github("matherion/userfriendlyscience", dependencies=TRUE)
+#install.packages("userfriendlyscience")
+library(userfriendlyscience)  
+oneway(consumption, city1, posthoc= "games-howell")
+#2 Anova unidirecional para y=consumo e x-cidade1 (grupos: Adelaide, Hobart, Melbourne, Perth )
+```
+
+Como o p-valor é 0,001, que é inferior a 5% do nível de significância, rejeitamos a hipótese nula, que significa que há uma diferença significativa no consumo de eletricidade das quatro maiores cidades da Austrália. Além disso, o valor p dos seguintes pares Perth-Adelaide, Perth-Hobart, Perth-Melbourne é menor que 0,05, então podemos dizer que há uma diferença significativa no consumo de eletricidade neste par. O valor p de Hobart-Adelaide e Melbourne-Adelaide é 0,825 e 0,873, que é maior que 0,05, portanto não rejeitamos a hipótese nula e concluímos que não há diferença significativa no consumo de eletricidade nesses pares.
